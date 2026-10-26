@@ -36,12 +36,30 @@
           <a target="_blank" href="https://panjiachen.github.io/vue-element-admin-site/#/">
             <el-dropdown-item>Docs</el-dropdown-item>
           </a>
-          <el-dropdown-item divided @click.native="logout">
+          <el-dropdown-item divided @click.native="openChangePwd">
+            <span style="display:block;">Change Password</span>
+          </el-dropdown-item>
+          <el-dropdown-item @click.native="logout">
             <span style="display:block;">Log Out</span>
           </el-dropdown-item>
         </el-dropdown-menu>
       </el-dropdown>
     </div>
+
+    <el-dialog title="Change Password" :visible.sync="pwdDialogVisible" width="420px" append-to-body @closed="resetPwdForm">
+      <el-form ref="pwdForm" :model="pwdForm" :rules="pwdRules" label-width="130px">
+        <el-form-item label="New Password" prop="password">
+          <el-input v-model="pwdForm.password" type="password" show-password autocomplete="new-password" />
+        </el-form-item>
+        <el-form-item label="Confirm Password" prop="confirmPassword">
+          <el-input v-model="pwdForm.confirmPassword" type="password" show-password autocomplete="new-password" @keyup.enter.native="submitChangePwd" />
+        </el-form-item>
+      </el-form>
+      <div slot="footer">
+        <el-button @click="pwdDialogVisible = false">Cancel</el-button>
+        <el-button type="primary" :loading="pwdLoading" @click="submitChangePwd">Confirm</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -53,6 +71,7 @@ import ErrorLog from '@/components/ErrorLog'
 import Screenfull from '@/components/Screenfull'
 import SizeSelect from '@/components/SizeSelect'
 import Search from '@/components/HeaderSearch'
+import { changePwd } from '@/api/user'
 
 export default {
   components: {
@@ -62,6 +81,33 @@ export default {
     Screenfull,
     SizeSelect,
     Search
+  },
+  data() {
+    const validateConfirm = (rule, value, callback) => {
+      if (value !== this.pwdForm.password) {
+        callback(new Error('The two passwords do not match'))
+      } else {
+        callback()
+      }
+    }
+    return {
+      pwdDialogVisible: false,
+      pwdLoading: false,
+      pwdForm: {
+        password: '',
+        confirmPassword: ''
+      },
+      pwdRules: {
+        password: [
+          { required: true, message: 'Please enter the new password', trigger: 'blur' },
+          { min: 6, message: 'The password can not be less than 6 digits', trigger: 'blur' }
+        ],
+        confirmPassword: [
+          { required: true, message: 'Please confirm the new password', trigger: 'blur' },
+          { validator: validateConfirm, trigger: 'blur' }
+        ]
+      }
+    }
   },
   computed: {
     ...mapGetters([
@@ -77,6 +123,24 @@ export default {
     async logout() {
       await this.$store.dispatch('user/logout')
       this.$router.push(`/login?redirect=${this.$route.fullPath}`)
+    },
+    openChangePwd() {
+      this.pwdDialogVisible = true
+    },
+    resetPwdForm() {
+      this.$refs.pwdForm.resetFields()
+    },
+    submitChangePwd() {
+      this.$refs.pwdForm.validate(valid => {
+        if (!valid) return
+        this.pwdLoading = true
+        changePwd({ password: this.pwdForm.password }).then(() => {
+          this.$message.success('Password changed successfully')
+          this.pwdDialogVisible = false
+        }).finally(() => {
+          this.pwdLoading = false
+        })
+      })
     }
   }
 }
